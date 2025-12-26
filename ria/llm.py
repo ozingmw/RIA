@@ -4,13 +4,13 @@ LLM 모듈 - OpenAI Agents SDK를 이용한 대화 에이전트
 
 from pathlib import Path
 
+from agents import Agent, Runner
 from dotenv import load_dotenv
 
 # .env 파일 로드
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 
-from agents import Agent, Runner
 
 # 기본 에이전트 생성
 agent = Agent(

@@ -130,11 +130,24 @@ def TTS(text):
 def main():
     print("음성 인식 에이전트 시작")
 
-    text = STT()
+    # 대화 루프: STT -> LLM -> TTS 순환
+    try:
+        while True:
+            text = STT()
 
-    if text:
-        response = LLM(text)
-        TTS(response)
+            if not text:
+                print("[알림] 음성을 인식하지 못했습니다. 다시 시도합니다.")
+                continue
+
+            response = LLM(text)
+
+            if response:
+                TTS(response)
+            else:
+                print("[알림] LLM 응답이 없습니다. 다시 시도합니다.")
+
+    except KeyboardInterrupt:
+        print("\n[종료] 사용자 중단으로 프로그램을 종료합니다.")
 
 
 if __name__ == "__main__":
