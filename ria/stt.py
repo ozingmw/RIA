@@ -4,9 +4,104 @@ STT (Speech-to-Text) 모듈
 Faster-Whisper를 사용한 음성 인식
 """
 
+import threading
+import time
+from collections import deque
+
 import numpy as np
-from audio import SAMPLE_RATE
+import pyaudio
 from faster_whisper import WhisperModel
+
+# 오디오 설정 상수
+SAMPLE_RATE = 16000  # 16kHz (음성 인식에 최적)
+CHUNK_SIZE = 512  # 한 번에 읽어올 샘플 수 (약 32ms)
+CHANNELS = 1  # 모노
+FORMAT = pyaudio.paInt16  # 16비트 정수
+BUFFER_SECONDS = 2  # 순환 버퍼 크기 (초)
+INPUT_DEVICE_INDEX = 1  # 마이크(Realtek High Definition Audio) 장치 인덱스
+
+# 순환 버퍼: 최근 2초간의 오디오 데이터 유지 (호출어 인식 시점 보정용)
+BUFFER_SIZE = int(SAMPLE_RATE * BUFFER_SECONDS / CHUNK_SIZE)
+audio_buffer = deque(maxlen=BUFFER_SIZE)
+
+# 스트리밍 상태 관리
+stream_lock = threading.Lock()
+
+
+class AudioStreamer:
+    """실시간 오디오 스트리밍 클래스"""
+
+    def __init__(self):
+        self.p = None
+        self.stream = None
+        self.is_running = False
+
+    def start(self):
+        """오디오 스트림 시작"""
+        self.p = pyaudio.PyAudio()
+
+        try:
+            self.stream = self.p.open(
+                format=FORMAT,
+                channels=CHANNELS,
+                rate=SAMPLE_RATE,
+                input=True,
+                input_device_index=INPUT_DEVICE_INDEX,
+                frames_per_buffer=CHUNK_SIZE,
+            )
+            self.is_running = True
+            print(
+                f"[오디오 스트림 시작] 장치: {INPUT_DEVICE_INDEX}, 샘플레이트: {SAMPLE_RATE}Hz"
+            )
+            return True
+        except Exception as e:
+            print(f"[오류] 오디오 스트림 시작 실패: {e}")
+            return False
+
+    def read_chunk(self):
+        """오디오 청크 하나 읽기"""
+        if not self.is_running or self.stream is None:
+            return None
+
+        try:
+            data = self.stream.read(CHUNK_SIZE, exception_on_overflow=False)
+            # bytes를 numpy 배열로 변환 (int16)
+            audio_chunk = np.frombuffer(data, dtype=np.int16)
+            return audio_chunk
+        except Exception as e:
+            print(f"[오류] 오디오 읽기 실패: {e}")
+            return None
+
+    def stop(self):
+        """오디오 스트림 종료"""
+        self.is_running = False
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        if self.p:
+            self.p.terminate()
+        print("[오디오 스트림 종료]")
+
+
+def add_to_buffer(chunk):
+    """순환 버퍼에 오디오 청크 추가"""
+    with stream_lock:
+        audio_buffer.append(chunk)
+
+
+def get_buffer_audio():
+    """순환 버퍼에 저장된 오디오 데이터를 하나의 배열로 반환"""
+    with stream_lock:
+        if len(audio_buffer) == 0:
+            return np.array([], dtype=np.int16)
+        return np.concatenate(list(audio_buffer))
+
+
+def clear_buffer():
+    """순환 버퍼 초기화"""
+    with stream_lock:
+        audio_buffer.clear()
+
 
 # Whisper 모델 설정
 MODEL_SIZE = "base"  # tiny, base, small, medium, large-v2, large-v3
@@ -55,5 +150,82 @@ def transcribe(audio_data: np.ndarray) -> str:
 
     # 세그먼트 텍스트 합치기
     text = "".join(segment.text for segment in segments).strip()
+
+    return text
+
+
+def listen_and_transcribe(
+    vad_threshold: float = 500,
+    silence_duration: float = 1.5,
+    max_record_seconds: float = 30,
+):
+    """마이크로부터 음성을 듣고 VAD로 구간을 잘라 Whisper로 텍스트 변환"""
+
+    clear_buffer()
+
+    streamer = AudioStreamer()
+    if not streamer.start():
+        return None
+
+    print("\n[대기 모드] 듣고 있습니다... (말씀해 주세요)")
+
+    recorded_chunks: list[np.ndarray] = []
+    start_time = time.time()
+    silence_start_time = None
+    is_speech_detected = False
+
+    try:
+        while True:
+            chunk = streamer.read_chunk()
+            if chunk is None:
+                break
+
+            recorded_chunks.append(chunk)
+            add_to_buffer(chunk)
+
+            amplitude = np.abs(chunk).mean()
+            level = int(amplitude / 500)
+            bar = "█" * min(level, 50)
+            status = "듣는 중..." if is_speech_detected else "대기 중..."
+            print(f"\r[{status}] {bar:<50} {amplitude:>6.0f}", end="", flush=True)
+
+            current_time = time.time()
+
+            if current_time - start_time > max_record_seconds:
+                print("\n[최대 시간 초과]")
+                break
+
+            if amplitude > vad_threshold:
+                if not is_speech_detected:
+                    is_speech_detected = True
+                    print("\n[음성 감지됨] 녹음 시작...")
+                silence_start_time = None
+            else:
+                if is_speech_detected:
+                    if silence_start_time is None:
+                        silence_start_time = current_time
+                    elif current_time - silence_start_time > silence_duration:
+                        print("\n[발화 종료 감지]")
+                        break
+
+    except KeyboardInterrupt:
+        print("\n[중단됨]")
+    finally:
+        streamer.stop()
+
+    if not recorded_chunks or not is_speech_detected:
+        return None
+
+    audio_data = np.concatenate(recorded_chunks)
+    duration = len(audio_data) / SAMPLE_RATE
+    print(f"\n[녹음 완료] {duration:.2f}초")
+
+    print("[STT 변환 중...]")
+    text = transcribe(audio_data)
+
+    if text:
+        print(f"[인식 결과] {text}")
+    else:
+        print("[인식 결과] (인식된 텍스트 없음)")
 
     return text

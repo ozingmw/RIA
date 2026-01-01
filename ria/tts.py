@@ -116,33 +116,3 @@ def play(
     # 모든 출력 완료 대기
     for thread in threads:
         thread.join()
-
-
-# def list_output_devices():
-#     """사용 가능한 출력 장치 목록을 출력합니다."""
-#     print("사용 가능한 출력 장치:")
-#     print("-" * 60)
-#     for i, dev in enumerate(sd.query_devices()):
-#         if dev["max_output_channels"] > 0:
-#             name = dev["name"]
-#             channels = dev["max_output_channels"]
-#             rate = int(dev["default_samplerate"])
-#             print(f"  [{i:2d}] {name} (ch:{channels}, rate:{rate})")
-#     print("-" * 60)
-
-
-# if __name__ == "__main__":
-#     # 테스트
-#     print("TTS 테스트")
-#     print("-" * 40)
-
-#     # 출력 장치 목록 표시
-#     list_output_devices()
-#     print()
-
-#     test_text = "안녕하세요! 저는 리아입니다. 만나서 반갑습니다."
-#     print(f"텍스트: {test_text}")
-#     print("[재생 중...]")
-
-#     play(test_text)
-#     print("[재생 완료]")

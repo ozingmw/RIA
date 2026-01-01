@@ -14,8 +14,8 @@ load_dotenv(env_path)
 
 # 기본 에이전트 생성
 agent = Agent(
-    name="Ria",
-    instructions="""당신은 Ria라는 이름의 친절하고 도움이 되는 AI 어시스턴트입니다.
+    name="리아",
+    instructions="""당신은 '리아'라는 이름의 친절하고 도움이 되는 AI 어시스턴트입니다.
 사용자와 자연스럽게 대화하며, 질문에 명확하고 간결하게 답변합니다.
 한국어로 대화합니다.""",
 )
