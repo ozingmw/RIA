@@ -107,6 +107,8 @@ def clear_buffer():
 MODEL_SIZE = "base"  # tiny, base, small, medium, large-v2, large-v3
 DEVICE = "cuda"  # cpu 또는 cuda
 COMPUTE_TYPE = "float16"  # float16, int8, int8_float16
+# DEVICE = "cpu"
+# COMPUTE_TYPE = "int8"
 
 # 전역 모델 인스턴스 (한 번만 로드)
 _model = None
@@ -145,7 +147,7 @@ def transcribe(audio_data: np.ndarray) -> str:
         audio_float,
         language="ko",  # 한국어
         beam_size=5,  # 빠른 처리를 위해 1로 설정
-        vad_filter=True,  # VAD 필터 활성화
+        vad_filter=True,  # VAD 필터 활성화 ( 무음 구간 제거 )
     )
 
     # 세그먼트 텍스트 합치기
