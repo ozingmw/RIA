@@ -7,17 +7,16 @@ Faster-Whisper를 사용한 음성 인식
 import time
 
 import numpy as np
-import pyaudio
 from faster_whisper import WhisperModel
-from ria.stt.audio import AudioStreamer, add_to_buffer, clear_buffer, SAMPLE_RATE
+from .audio import AudioStreamer, add_to_buffer, clear_buffer, SAMPLE_RATE
 
 
 # Whisper 모델 설정
 MODEL_SIZE = "base"  # tiny, base, small, medium, large-v2, large-v3
-DEVICE = "cuda"  # cpu 또는 cuda
-COMPUTE_TYPE = "float16"  # float16, int8, int8_float16
-# DEVICE = "cpu"
-# COMPUTE_TYPE = "int8"
+# DEVICE = "cuda"  # cpu 또는 cuda
+# COMPUTE_TYPE = "float16"  # float16, int8, int8_float16
+DEVICE = "cpu"
+COMPUTE_TYPE = "int8"
 
 # 전역 모델 인스턴스 (한 번만 로드)
 _model = None

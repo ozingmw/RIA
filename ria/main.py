@@ -1,7 +1,6 @@
-from ria.llm.llm import chat
-from ria.test.stt import listen_and_transcribe
-from ria.tts.tts import play
-
+from llm.llm import chat
+from stt.stt import listen_and_transcribe
+from tts.tts import play
 
 def STT():
     text = listen_and_transcribe()

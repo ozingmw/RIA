@@ -1,16 +1,8 @@
-"""
-STT (Speech-to-Text) 모듈
-
-Faster-Whisper를 사용한 음성 인식
-"""
-
 import threading
-import time
 from collections import deque
 
 import numpy as np
 import pyaudio
-from faster_whisper import WhisperModel
 
 # 오디오 설정 상수
 SAMPLE_RATE = 16000  # 16kHz (음성 인식에 최적)

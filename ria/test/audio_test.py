@@ -1,8 +1,13 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
 
-from audio import (
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from ria.stt.audio import (
     AudioStreamer,
     add_to_buffer,
     get_buffer_audio,
