@@ -14,7 +14,7 @@ from openai import OpenAI
 from scipy import signal
 
 # .env 파일 로드
-env_path = Path(__file__).parent.parent / ".env"
+env_path = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(env_path)
 
 # OpenAI 클라이언트 생성

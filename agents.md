@@ -68,6 +68,7 @@ uv run python -m ria.test.find_audio
 ```
 
 ## NOTES
+- Dev environment: WSL/Ubuntu; runtime target: Windows. Adjust device indices accordingly.
 - Faster-whisper configured for CUDA, float16, model "base" (config/stt.yaml).
 - Output devices default to indices [14,15] (config/tts.yaml); adjust per machine.
 - Unity assets are unrelated to runtime; keep excluded from doc tooling.
