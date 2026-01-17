@@ -1,16 +1,23 @@
 import threading
 from collections import deque
+from pathlib import Path
 
 import numpy as np
 import pyaudio
+import yaml
 
-# 오디오 설정 상수
-SAMPLE_RATE = 16000  # 16kHz (음성 인식에 최적)
-CHUNK_SIZE = 512  # 한 번에 읽어올 샘플 수 (약 32ms)
-CHANNELS = 1  # 모노
-FORMAT = pyaudio.paInt16  # 16비트 정수
-BUFFER_SECONDS = 2  # 순환 버퍼 크기 (초)
-INPUT_DEVICE_INDEX = 1  # 마이크(Realtek High Definition Audio) 장치 인덱스
+cfg_path = Path(__file__).resolve().parents[2] / "config" / "stt.yaml"
+with cfg_path.open("r", encoding="utf-8") as f:
+    _cfg = yaml.safe_load(f) or {}
+
+# 오디오 설정 상수 (config/stt.yaml 기반)
+SAMPLE_RATE = int(_cfg["sample_rate"])
+CHUNK_SIZE = int(_cfg["chunk_size"])
+CHANNELS = int(_cfg["channels"])
+_format_name = str(_cfg["format"])
+FORMAT = getattr(pyaudio, _format_name)
+BUFFER_SECONDS = float(_cfg["buffer_seconds"])
+INPUT_DEVICE_INDEX = _cfg["input_device_index"]
 
 # 순환 버퍼: 최근 2초간의 오디오 데이터 유지 (호출어 인식 시점 보정용)
 BUFFER_SIZE = int(SAMPLE_RATE * BUFFER_SECONDS / CHUNK_SIZE)

@@ -8,6 +8,7 @@ from typing import Sequence
 
 import numpy as np
 import sounddevice as sd
+import yaml
 from dotenv import load_dotenv
 from openai import OpenAI
 from scipy import signal
@@ -19,14 +20,21 @@ load_dotenv(env_path)
 # OpenAI 클라이언트 생성
 client = OpenAI()
 
-# 오디오 출력 설정
-MODEL_NAME = "gpt-4o-mini-tts"  # OpenAI TTS 음성 합성 모델
-OUTPUT_SAMPLE_RATE = 24000
-OUTPUT_CHANNELS = 2
-OUTPUT_DEVICE_NAME = [14, 15]
+# 구성 로드
+cfg_path = Path(__file__).resolve().parents[2] / "config" / "tts.yaml"
+with cfg_path.open("r", encoding="utf-8") as f:
+    _cfg = yaml.safe_load(f) or {}
+
+MODEL_NAME = str(_cfg["model_name"])  # OpenAI TTS 음성 합성 모델
+OUTPUT_SAMPLE_RATE = int(_cfg["output_sample_rate"])
+OUTPUT_CHANNELS = int(_cfg["output_channels"])
+OUTPUT_DEVICE_NAME = _cfg["output_device_name"]
+
+voice_cfg = _cfg.get("voice", {})
+PLAY_VOICE_DEFAULT = str(voice_cfg.get("play_default", "shimmer"))
 
 
-def synthesize(text: str, voice: str = "nova") -> bytes:
+def synthesize(text: str, voice: str) -> bytes:
     """
     텍스트를 PCM 음성 데이터로 변환합니다.
 
@@ -48,7 +56,7 @@ def synthesize(text: str, voice: str = "nova") -> bytes:
 
 def play(
     text: str,
-    voice: str = "shimmer",
+    voice: str = PLAY_VOICE_DEFAULT,
     device_name: str
     | int
     | tuple[str, int]

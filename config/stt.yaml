@@ -1,0 +1,25 @@
+sample_rate: 16000
+chunk_size: 512
+channels: 1
+format: paInt16
+buffer_seconds: 2
+input_device_index: 1
+vad:
+  type: silero
+  silero:
+    device: cpu
+    start_threshold: 0.6
+    end_threshold: 0.35
+    start_trigger_frames: 3
+    end_trigger_frames: 12
+    min_speech_ms: 300
+    max_utterance_s: 15
+    pre_roll_ms: 500
+  energy:
+    vad_threshold: 500
+    silence_duration: 1.5
+model:
+  size: base
+  device: cuda
+  compute_type: float16
+

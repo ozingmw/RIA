@@ -1,0 +1,8 @@
+model_name: gpt-4o-mini-tts
+output_sample_rate: 24000
+output_channels: 2
+output_device_name:
+  - 14
+  - 15
+voice:
+  play_default: shimmer
