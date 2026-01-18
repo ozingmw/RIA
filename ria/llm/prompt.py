@@ -24,30 +24,30 @@ def build_system_prompt(data: Dict[str, Any]) -> str:
     style = data.get("style", "")
     lines: List[str] = []
     if name and style:
-        lines.append(f'\ub108\ub294 "{name}". {style}')
+        lines.append(f'너는 "{name}". {style}')
     elif name:
-        lines.append(f'\ub108\ub294 "{name}".')
+        lines.append(f'너는 "{name}".')
     elif style:
         lines.append(style)
 
     rules = data.get("rules") or []
     if rules:
-        lines.append("\uaddc\uce59:")
+        lines.append("규칙:")
         lines.extend([f"- {rule}" for rule in rules])
 
     samples = data.get("samples") or []
     if samples:
-        lines.append("\uc608\uc2dc:")
-        assistant_name = name or "\uc5b4\uc2dc\uc2a4\ud134\ud2b8"
+        lines.append("예시:")
+        assistant_name = name or "어시스턴트"
         for sample in samples:
             user = sample.get("user", "")
             assistant = sample.get("assistant", "")
-            lines.append(f'\uc720\uc800: "{user}"')
+            lines.append(f'유저: "{user}"')
             lines.append(f'{assistant_name}: "{assistant}"')
 
     notes = data.get("notes")
     if notes:
-        lines.append(f"\uba54\ubaa8: {notes}")
+        lines.append(f"메모: {notes}")
 
     return "\n".join(lines)
 
