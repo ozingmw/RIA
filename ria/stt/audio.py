@@ -81,7 +81,7 @@ def add_to_buffer(chunk):
         audio_buffer.append(chunk)
 
 
-def buffer_audio():
+def get_buffer_audio():
     """순환 버퍼에 저장된 오디오 데이터를 하나의 배열로 반환"""
     with stream_lock:
         if len(audio_buffer) == 0:
