@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Sequence, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Sequence, cast
 
 import numpy as np
 import sounddevice as sd
@@ -37,6 +37,7 @@ OPENAI_SAMPLE_RATE = int(_openai_cfg.get("output_sample_rate", 24000))
 OPENAI_VOICE_DEFAULT = str(_openai_cfg.get("voice", {}).get("play_default", "shimmer"))
 
 _super_cfg = _cfg.get("supertonic2", {})
+_onnx_cfg = _cfg.get("supertonic_onnx", {})
 SUPER_STYLE_DEFAULT = str(_super_cfg.get("voice_style", "F1"))
 SUPER_LANG_DEFAULT = str(_super_cfg.get("lang", "ko"))
 SUPER_TOTAL_STEP = int(_super_cfg.get("total_step", 5))
@@ -45,6 +46,27 @@ SUPER_SAMPLE_RATE = int(_super_cfg.get("sample_rate", 44100))
 SUPER_MAX_CHUNK = int(_super_cfg.get("max_chunk_length", 120))
 SUPER_SILENCE = float(_super_cfg.get("silence_duration", 0.3))
 SUPER_AUTO_DOWNLOAD = bool(_super_cfg.get("auto_download", True))
+
+_root_dir = Path(__file__).resolve().parents[2]
+
+
+def _resolve_asset_path(value: str, root: Path) -> str:
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    return str((root / path).resolve())
+
+
+ONNX_DIR = _resolve_asset_path(str(_onnx_cfg.get("onnx_dir", "assets/onnx")), _root_dir)
+ONNX_VOICE_STYLE = _resolve_asset_path(
+    str(_onnx_cfg.get("voice_style_path", "assets/voice_styles/F4.json")), _root_dir
+)
+ONNX_LANG = str(_onnx_cfg.get("lang", "ko"))
+ONNX_TOTAL_STEP = int(_onnx_cfg.get("total_step", 5))
+ONNX_SPEED = float(_onnx_cfg.get("speed", 1.05))
+ONNX_MAX_CHUNK = int(_onnx_cfg.get("max_chunk_length", 120))
+ONNX_SILENCE = float(_onnx_cfg.get("silence_duration", 0.3))
+ONNX_USE_GPU = bool(_onnx_cfg.get("use_gpu", False))
 
 
 @lru_cache(maxsize=1)
@@ -96,7 +118,6 @@ def _synthesize_supertonic(
     wav, _duration = client.synthesize(
         text,
         voice_style=style,
-        lang=SUPER_LANG_DEFAULT,
         total_steps=SUPER_TOTAL_STEP,
         speed=SUPER_SPEED,
         max_chunk_length=SUPER_MAX_CHUNK,
@@ -106,6 +127,29 @@ def _synthesize_supertonic(
     audio = np.clip(audio, -1.0, 1.0)
     sample_rate = getattr(client, "sample_rate", SUPER_SAMPLE_RATE)
     return audio, sample_rate
+
+
+def _synthesize_supertonic_onnx(
+    text: str, voice_style: str | None
+) -> tuple[np.ndarray, int]:
+    """Supertone ONNX 런타임으로 합성하여 float32 mono 오디오와 샘플레이트를 반환합니다."""
+    from .supertonic_onnx import load_text_to_speech, load_voice_style
+
+    tts = load_text_to_speech(ONNX_DIR, ONNX_USE_GPU)
+    style_path = voice_style or ONNX_VOICE_STYLE
+    style = load_voice_style(style_path)
+    wav, _duration = tts(
+        text=text,
+        lang=ONNX_LANG,
+        style=style,
+        total_step=ONNX_TOTAL_STEP,
+        speed=ONNX_SPEED,
+        max_chunk_length=ONNX_MAX_CHUNK,
+        silence_duration=ONNX_SILENCE,
+    )
+    audio = np.asarray(wav).reshape(-1).astype(np.float32)
+    audio = np.clip(audio, -1.0, 1.0)
+    return audio, tts.sample_rate
 
 
 def synthesize(text: str, voice: str | None = None) -> bytes:
@@ -123,6 +167,8 @@ def synthesize(text: str, voice: str | None = None) -> bytes:
         audio_float, sample_rate = _synthesize_openai(text, voice)
     elif BACKEND == "supertonic2":
         audio_float, sample_rate = _synthesize_supertonic(text, voice)
+    elif BACKEND == "supertonic_onnx":
+        audio_float, sample_rate = _synthesize_supertonic_onnx(text, voice)
     else:  # pragma: no cover - config error
         raise ValueError(f"지원하지 않는 TTS backend: {BACKEND}")
 
@@ -137,6 +183,8 @@ def _synthesize_float(text: str, voice: str | None = None) -> tuple[np.ndarray, 
         return _synthesize_openai(text, voice)
     if BACKEND == "supertonic2":
         return _synthesize_supertonic(text, voice)
+    if BACKEND == "supertonic_onnx":
+        return _synthesize_supertonic_onnx(text, voice)
     raise ValueError(f"지원하지 않는 TTS backend: {BACKEND}")
 
 

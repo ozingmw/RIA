@@ -10,7 +10,11 @@ from dotenv import load_dotenv
 
 from .prompt import (
     build_prompt_text,
+)
+from .prompt import (
     get_prompt as get_prompt_data,
+)
+from .prompt import (
     update_prompt as update_prompt_data,
 )
 
@@ -19,43 +23,43 @@ env_path = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(env_path)
 
 
-@function_tool
-def get_prompt() -> Dict[str, Any]:
-    """현재 프롬프트 JSON을 반환한다."""
-    return get_prompt_data()
+# @function_tool
+# def get_prompt() -> Dict[str, Any]:
+#     """현재 프롬프트 JSON을 반환한다."""
+#     return get_prompt_data()
 
 
-@function_tool
-def update_prompt(
-    name: Optional[str] = None,
-    style: Optional[str] = None,
-    rules_set: Optional[List[str]] = None,
-    rules_append: Optional[List[str]] = None,
-    samples_append: Optional[List[Dict[str, str]]] = None,
-    notes: Optional[str] = None,
-) -> Dict[str, Any]:
-    """프롬프트 JSON을 부분 업데이트한다."""
-    return update_prompt_data(
-        name=name,
-        style=style,
-        rules_set=rules_set,
-        rules_append=rules_append,
-        samples_append=samples_append,
-        notes=notes,
-    )
+# @function_tool
+# def update_prompt(
+#     name: Optional[str] = None,
+#     style: Optional[str] = None,
+#     rules_set: Optional[List[str]] = None,
+#     rules_append: Optional[List[str]] = None,
+#     samples_append: Optional[List[Dict[str, str]]] = None,
+#     notes: Optional[str] = None,
+# ) -> Dict[str, Any]:
+#     """프롬프트 JSON을 부분 업데이트한다."""
+#     return update_prompt_data(
+#         name=name,
+#         style=style,
+#         rules_set=rules_set,
+#         rules_append=rules_append,
+#         samples_append=samples_append,
+#         notes=notes,
+#     )
 
 
-@function_tool(name_override="build_prompt_text")
-def build_prompt_text_tool() -> str:
-    """현재 프롬프트 JSON을 system prompt 문자열로 변환한다."""
-    return build_prompt_text()
+# @function_tool(name_override="build_prompt_text")
+# def build_prompt_text_tool() -> str:
+#     """현재 프롬프트 JSON을 system prompt 문자열로 변환한다."""
+#     return build_prompt_text()
 
 
 def create_agent() -> Agent:
     return Agent(
         name="리아",
         instructions=build_prompt_text(),
-        tools=[get_prompt, update_prompt, build_prompt_text_tool],
+        # tools=[get_prompt, update_prompt, build_prompt_text_tool],
     )
 
 

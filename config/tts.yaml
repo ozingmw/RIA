@@ -1,5 +1,5 @@
-# 선택 가능한 백엔드: openai | supertonic2
-backend: openai
+# 선택 가능한 백엔드: openai | supertonic2 | supertonic_onnx
+backend: supertonic_onnx
 
 # 공통 출력 설정
 output_channels: 2
@@ -11,14 +11,24 @@ openai:
   model_name: gpt-4o-mini-tts
   output_sample_rate: 24000
   voice:
-    play_default: shimmer
+    play_default: marin
 
 supertonic2:
   auto_download: true
   sample_rate: 44100
   lang: ko
-  voice_style: F1
+  voice_style: F4
   total_step: 5
-  speed: 1.05
+  speed: 1.1
   max_chunk_length: 120
   silence_duration: 0.3
+
+supertonic_onnx:
+  onnx_dir: C:\workspace\ria\ria\assets\onnx
+  voice_style_path: C:\workspace\ria\ria\assets\voice_styles\F1.json
+  lang: ko
+  total_step: 5
+  speed: 0.8
+  max_chunk_length: 120
+  silence_duration: 0.3
+  use_gpu: false
