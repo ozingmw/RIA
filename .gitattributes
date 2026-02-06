@@ -1,2 +1,2 @@
 *.onnx filter=lfs diff=lfs merge=lfs -text
-ria/assets/onnx/*.onnx filter=lfs diff=lfs merge=lfs -text
+ria/assets/tts/onnx/*.onnx filter=lfs diff=lfs merge=lfs -text

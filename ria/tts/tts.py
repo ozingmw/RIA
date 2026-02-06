@@ -57,9 +57,11 @@ def _resolve_asset_path(value: str, root: Path) -> str:
     return str((root / path).resolve())
 
 
-ONNX_DIR = _resolve_asset_path(str(_onnx_cfg.get("onnx_dir", "assets/onnx")), _root_dir)
+ONNX_DIR = _resolve_asset_path(
+    str(_onnx_cfg.get("onnx_dir", "assets/tts/onnx")), _root_dir
+)
 ONNX_VOICE_STYLE = _resolve_asset_path(
-    str(_onnx_cfg.get("voice_style_path", "assets/voice_styles/F4.json")), _root_dir
+    str(_onnx_cfg.get("voice_style_path", "assets/tts/voice_styles/F4.json")), _root_dir
 )
 ONNX_LANG = str(_onnx_cfg.get("lang", "ko"))
 ONNX_TOTAL_STEP = int(_onnx_cfg.get("total_step", 5))

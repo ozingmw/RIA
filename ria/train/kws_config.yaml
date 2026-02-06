@@ -1,0 +1,10 @@
+data_root: "ria/train/datasets"
+out_dir: "ria/train/outputs"
+epochs: 20
+batch_size: 32
+lr: 0.001
+val_split: 0.1
+seed: 42
+num_workers: "auto"
+force_cpu: false
+use_class_weight: false
