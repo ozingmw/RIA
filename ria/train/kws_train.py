@@ -1,6 +1,5 @@
-import csv
+import argparse
 import json
-import os
 import random
 import sys
 from dataclasses import dataclass
@@ -17,10 +16,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from ria.stt.kws import DSCNN, KWSPreprocessor
+from ria.stt.kws_advanced import LiteKWSPreprocessor, TinyDSCNN
 
 AUDIO_EXTS = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".aac", ".wma"}
 # 학습 설정 파일은 스크립트와 같은 폴더에 둔다.
-CONFIG_PATH = Path(__file__).resolve().parent / "kws_config.yaml"
 
 
 @dataclass
@@ -33,7 +32,7 @@ class KWSDataset(Dataset):
     def __init__(
         self,
         items: list[tuple[Path, int]],
-        preprocessor: KWSPreprocessor,
+        preprocessor: KWSPreprocessor | LiteKWSPreprocessor,
         target_samples: int,
         random_crop: bool,
     ):
@@ -67,36 +66,6 @@ def list_audio_files(root: Path) -> list[Path]:
     return sorted(files)
 
 
-def load_labels_csv(csv_path: Path) -> DatasetSpec:
-    items: list[tuple[Path, int]] = []
-    label_to_index: dict[str, int] = {}
-    with csv_path.open(newline="") as handle:
-        reader = csv.reader(handle)
-        for row in reader:
-            if not row:
-                continue
-            first = row[0].strip()
-            if not first or first.startswith("#"):
-                continue
-            if first.lower() in {"path", "file"}:
-                continue
-            if len(row) < 2:
-                continue
-            rel_path = Path(first)
-            label_name = row[1].strip()
-            if label_name not in label_to_index:
-                label_to_index[label_name] = len(label_to_index)
-            label = label_to_index[label_name]
-            # labels.csv 기준 상대 경로를 실제 파일 경로로 해석
-            path = rel_path if rel_path.is_absolute() else csv_path.parent / rel_path
-            items.append((path, label))
-    missing = [path for path, _ in items if not path.exists()]
-    if missing:
-        missing_text = "\n".join(str(p) for p in missing[:5])
-        raise FileNotFoundError(f"Missing dataset files:\n{missing_text}")
-    return DatasetSpec(items=items, label_to_index=label_to_index)
-
-
 def load_from_subdirs(split_dir: Path) -> DatasetSpec:
     items: list[tuple[Path, int]] = []
     label_to_index: dict[str, int] = {}
@@ -112,9 +81,6 @@ def load_from_subdirs(split_dir: Path) -> DatasetSpec:
 
 
 def build_dataset_spec(split_dir: Path) -> DatasetSpec:
-    labels_csv = split_dir / "labels.csv"
-    if labels_csv.exists():
-        return load_labels_csv(labels_csv)
     class_dirs = (
         [p for p in split_dir.iterdir() if p.is_dir()] if split_dir.exists() else []
     )
@@ -143,33 +109,15 @@ def remap_items(
     return remapped
 
 
-def resolve_path(value: str | Path) -> Path:
-    path = Path(value)
-    if path.is_absolute():
-        return path
-    return ROOT / path
-
-
-def parse_bool(value: object, default: bool) -> bool:
+def parse_model_name(value: object) -> str:
     if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
+        return "kws"
     if isinstance(value, str):
         lowered = value.strip().lower()
-        if lowered in {"true", "yes", "1"}:
-            return True
-        if lowered in {"false", "no", "0"}:
-            return False
-    raise ValueError(f"Invalid boolean value: {value!r}")
-
-
-def parse_num_workers(value: object) -> int:
-    if value is None:
-        return 0 if os.name == "nt" else 2
-    if isinstance(value, str) and value.strip().lower() == "auto":
-        return 0 if os.name == "nt" else 2
-    return int(value)
+        if lowered in {"both", "all"}:
+            raise ValueError("Select a single model: 'kws' or 'kws_advanced'.")
+        return lowered
+    raise ValueError(f"Invalid model value: {value!r}")
 
 
 def load_config(path: Path) -> dict:
@@ -202,6 +150,7 @@ def load_audio(path: Path, target_sr: int = 16000) -> np.ndarray:
     return samples
 
 
+# 해당 부분 확인 후 수정 필요
 def trim_or_pad(samples: np.ndarray, target_len: int, random_crop: bool) -> np.ndarray:
     current_len = samples.shape[0]
     if current_len == target_len:
@@ -270,25 +219,34 @@ def run_epoch(
 
 
 def main() -> None:
-    # YAML 설정 로드 (경로는 repo root 기준으로 해석)
-    config = load_config(CONFIG_PATH)
-    data_root = resolve_path(config.get("data_root", "ria/train/datasets"))
-    out_dir = resolve_path(config.get("out_dir", "ria/train/outputs"))
+    args = argparse.ArgumentParser()
+    args.add_argument(
+        "--config",
+        type=Path,
+        default=Path(__file__).resolve().parent / "kws_config.yaml",
+        help="Path to config YAML file.",
+    )
+    parsed = args.parse_args()
+
+    config = load_config(parsed.config)
+    model_name = parse_model_name(config.get("model"))
+    data_root = Path(config.get("data_root", "datasets"))
+    out_dir = Path(config.get("out_dir", "outputs"))
+    device = config.get("device", "cuda" if torch.cuda.is_available() else "cpu")
     epochs = int(config.get("epochs", 20))
     batch_size = int(config.get("batch_size", 32))
     lr = float(config.get("lr", 1e-3))
     val_split = float(config.get("val_split", 0.1))
     seed = int(config.get("seed", 42))
-    num_workers = parse_num_workers(config.get("num_workers", "auto"))
-    force_cpu = parse_bool(config.get("force_cpu"), False)
-    use_class_weight = parse_bool(config.get("use_class_weight"), False)
+    num_workers = int(config.get("num_workers", 1))
+    target_seconds = float(config.get("target_seconds", 2.0))
+    class_weights_enabled = bool(config.get("class_weights", True))
 
     seed_everything(seed)
 
-    train_dir = data_root / "train"
-    test_dir = data_root / "test"
+    train_dir = Path(__file__).resolve().parents[0] / data_root / "train"
+    test_dir = Path(__file__).resolve().parents[0] / data_root / "test"
 
-    # labels.csv 또는 클래스 폴더 구조 둘 다 지원
     train_spec = build_dataset_spec(train_dir)
     test_spec = build_dataset_spec(test_dir)
 
@@ -320,9 +278,26 @@ def main() -> None:
         val_items = train_items[:val_size]
         train_items = train_items[val_size:]
 
-    preprocessor = KWSPreprocessor()
-    target_samples = 16000
+    class_weights = None
+    if class_weights_enabled:
+        class_weights = compute_class_weights(train_items, num_classes).to(device)
 
+    out_dir.mkdir(parents=True, exist_ok=True)
+    label_list = [None] * len(label_to_index)
+    for name, idx in label_to_index.items():
+        label_list[idx] = name
+    allowed_models = {"kws", "kws_advanced"}
+    if model_name not in allowed_models:
+        raise ValueError(f"Unknown model: {model_name}")
+
+    if model_name == "kws":
+        preprocessor = KWSPreprocessor()
+        model = DSCNN().to(device)
+    else:
+        preprocessor = LiteKWSPreprocessor()
+        model = TinyDSCNN(num_classes=num_classes, use_softmax=True).to(device)
+
+    target_samples = int(preprocessor.sample_rate * target_seconds)
     train_dataset = KWSDataset(
         train_items, preprocessor, target_samples, random_crop=True
     )
@@ -341,20 +316,8 @@ def main() -> None:
         num_workers=num_workers,
     )
 
-    device = torch.device(
-        "cpu" if force_cpu or not torch.cuda.is_available() else "cuda"
-    )
-    model = DSCNN().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    class_weights = None
-    if use_class_weight:
-        class_weights = compute_class_weights(train_items, num_classes).to(device)
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    label_list = [None] * len(label_to_index)
-    for name, idx in label_to_index.items():
-        label_list[idx] = name
     with (out_dir / "labels.json").open("w") as handle:
         json.dump(label_list, handle, indent=2)
 
@@ -367,7 +330,7 @@ def main() -> None:
             model, val_loader, device, optimizer=None, class_weights=class_weights
         )
         print(
-            f"Epoch {epoch:02d} "
+            f"[{model_name}] Epoch {epoch:02d} "
             f"train_loss={train_loss:.4f} train_acc={train_acc:.4f} "
             f"val_loss={val_loss:.4f} val_acc={val_acc:.4f}"
         )
@@ -378,9 +341,10 @@ def main() -> None:
                 {
                     "model_state": model.state_dict(),
                     "labels": label_list,
-                    "sample_rate": 16000,
-                    "mel_bins": 40,
-                    "time_steps": 100,
+                    "sample_rate": preprocessor.sample_rate,
+                    "mel_bins": preprocessor.n_mels,
+                    "time_steps": preprocessor.target_frames,
+                    "model_type": model_name,
                 },
                 out_dir / "kws_model_best.pt",
             )
@@ -389,12 +353,16 @@ def main() -> None:
         {
             "model_state": model.state_dict(),
             "labels": label_list,
-            "sample_rate": 16000,
-            "mel_bins": 40,
-            "time_steps": 100,
+            "sample_rate": preprocessor.sample_rate,
+            "mel_bins": preprocessor.n_mels,
+            "time_steps": preprocessor.target_frames,
+            "model_type": model_name,
         },
         out_dir / "kws_model_last.pt",
     )
+
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":

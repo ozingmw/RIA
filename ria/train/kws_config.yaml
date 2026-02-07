@@ -1,10 +1,13 @@
-data_root: "ria/train/datasets"
-out_dir: "ria/train/outputs"
+# model: "kws"
+model: "kws_advanced"
+data_root: "datasets"
+out_dir: "outputs"
+device: "cuda"
 epochs: 20
 batch_size: 32
 lr: 0.001
 val_split: 0.1
 seed: 42
-num_workers: "auto"
-force_cpu: false
-use_class_weight: false
+num_workers: 1
+target_seconds: 2.0
+use_class_weights: True

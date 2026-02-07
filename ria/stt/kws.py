@@ -8,15 +8,23 @@ class KWSPreprocessor:
     """
     Keyword Spotting용 오디오 전처리기
     입력: int16 numpy audio (16kHz, mono)
-    출력: torch tensor (1, 1, 40, 100) <- (batch, channel, mel_bins, time_steps)
+    출력: torch tensor (1, 1, 40, 200) <- (batch, channel, mel_bins, time_steps)
     """
 
     # Mel Spectrogram 변환기 (한 번만 생성)
     # 소리를 이미지로 바꿈
     def __init__(self):
+        self.sample_rate = 16000
+        self.n_fft = 400
+        self.hop_length = 160
+        self.n_mels = 40
         self.mel_transform = torchaudio.transforms.MelSpectrogram(
-            sample_rate=16000, n_fft=400, hop_length=160, n_mels=40
+            sample_rate=self.sample_rate,
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            n_mels=self.n_mels,
         )
+        self.target_frames = 200
 
     def __call__(self, audio_np):
         # int16 → float32 정규화
@@ -30,13 +38,13 @@ class KWSPreprocessor:
         mel = torch.log1p(mel)
 
         # DS-CNN 기준 time dimension 고정
-        if mel.shape[-1] < 100:
-            mel = F.pad(mel, (0, 100 - mel.shape[-1]))
+        if mel.shape[-1] < self.target_frames:
+            mel = F.pad(mel, (0, self.target_frames - mel.shape[-1]))
         else:
-            mel = mel[..., :100]
+            mel = mel[..., : self.target_frames]
 
         # channel dim 추가
-        mel = mel.unsqueeze(1)  # (1, 1, 40, 100)
+        mel = mel.unsqueeze(1)  # (1, 1, 40, 200)
 
         return mel
 
