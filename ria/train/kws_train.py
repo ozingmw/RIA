@@ -240,7 +240,7 @@ def main() -> None:
     seed = int(config.get("seed", 42))
     num_workers = int(config.get("num_workers", 1))
     target_seconds = float(config.get("target_seconds", 2.0))
-    class_weights_enabled = bool(config.get("class_weights", True))
+    class_weights_enabled = bool(config.get("use_class_weights", True))
 
     seed_everything(seed)
 
