@@ -12,8 +12,7 @@ import torchaudio
 import yaml
 from torch.utils.data import DataLoader, Dataset
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ria.stt.kws import DSCNN, KWSPreprocessor
 from ria.stt.kws_advanced import LiteKWSPreprocessor, TinyDSCNN
