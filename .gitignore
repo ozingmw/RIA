@@ -15,7 +15,4 @@ uv.lock
 ######
 
 unity
-
-**/datasets/**
-**/raw_data/**
-**/outputs/**
+.omx

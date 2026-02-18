@@ -16,6 +16,9 @@ parser.add_argument("--sample-rate", type=int, default=16000)
 parser.add_argument("--max-seconds", type=float, default=2.0)
 args = parser.parse_args()
 
+# Reserve "s" for clip saving in this UI and prevent Matplotlib's figure-save popup.
+plt.rcParams["keymap.save"] = [k for k in plt.rcParams.get("keymap.save", []) if k != "s"]
+
 root = Path(__file__).resolve().parent
 raw_root = root / "raw_data"
 extract_root = root / "extract_data"
@@ -55,7 +58,7 @@ for file_idx, input_path in enumerate(files):
     except ValueError:
         out_dir = extract_root
     out_dir.mkdir(parents=True, exist_ok=True)
-    output_path = out_dir / f"{input_path.stem}_selected.wav"
+    output_path = out_dir / f"{input_path.stem}.wav"
 
     if max_len <= 1e-6:
         print(f"[skip] too short: {input_path}")
@@ -70,6 +73,7 @@ for file_idx, input_path in enumerate(files):
         "saved": False,
         "start": start,
         "end": end,
+        "shade": None,
     }
 
     fig, ax = plt.subplots(figsize=(12, 4))
@@ -85,7 +89,7 @@ for file_idx, input_path in enumerate(files):
     )
     l1 = ax.axvline(state["start"], color="r", lw=2)
     l2 = ax.axvline(state["end"], color="g", lw=2)
-    shade = ax.axvspan(state["start"], state["end"], color="blue", alpha=0.15)
+    state["shade"] = ax.axvspan(state["start"], state["end"], color="blue", alpha=0.15)
 
     def on_motion(event):
         if event.inaxes is not ax or event.xdata is None:
@@ -120,17 +124,13 @@ for file_idx, input_path in enumerate(files):
         state["end"] = max(state["start"] + 1e-6, min(state["end"], max_len))
         l1.set_xdata([state["start"], state["start"]])
         l2.set_xdata([state["end"], state["end"]])
-        y0, y1 = ax.get_ylim()
-        shade.set_xy(
-            [
-                (state["start"], y0),
-                (state["start"], y1),
-                (state["end"], y1),
-                (state["end"], y0),
-            ]
+        if state["shade"] is not None:
+            state["shade"].remove()
+        state["shade"] = ax.axvspan(
+            state["start"], state["end"], color="blue", alpha=0.15
         )
         ax.set_title(
-            f"[{file_idx + 1}/{len(files)}] {input_path.name} | [{state['start']:.2f}s, {state['end']:.2f}s] (dur: {state['end'] - state['start']:.2f}s) | s:저장, n:다음, q:종료"
+            f"[{file_idx + 1}/{len(files)}] {input_path.name} | [{state['start']:.2f}s, {state['end']:.2f}s] (dur: {state['end'] - state['start']:.2f}s) | s:save, n:next, q:quit"
         )
         fig.canvas.draw_idle()
 
